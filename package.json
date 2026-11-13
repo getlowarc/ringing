@@ -1,0 +1,38 @@
+{
+  "name": "ringing-audio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "An audio engine in plain JavaScript, for any app, game or service. No dependencies, no build step.",
+  "license": "MIT",
+  "author": "Nolan Baxter",
+  "homepage": "https://github.com/getlowarc/ringing#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/getlowarc/ringing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/getlowarc/ringing/issues"
+  },
+  "type": "module",
+  "main": "./src/ringing.js",
+  "types": "./src/ringing.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/ringing.d.ts",
+      "default": "./src/ringing.js"
+    },
+    "./*": "./src/*"
+  },
+  "sideEffects": false,
+  "files": [
+    "src",
+    "docs/API.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test/math.test.js && node test/ids.test.js && node test/store.test.js && node test/ringing.test.js && node test/voices.test.js && node test/decode.test.js && node test/gain.test.js && node test/clicks.test.js && node test/limiter.test.js && node test/errors.test.js && node test/docs.test.js && node test/platform.test.js && node test/determinism.test.js && node --expose-gc test/realtime.test.js && node --expose-gc test/soak.test.js",
+    "test:types": "npx -y -p typescript@7 tsc --noEmit --strict --target es2022 --module nodenext --lib es2022 test/types.ts"
+  }
+}

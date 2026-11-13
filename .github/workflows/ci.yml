@@ -1,0 +1,52 @@
+# What checks a change. Everything runs on every push for now; the plan job that
+# runs only what a change reaches is still
+# to come, in ROADMAP.md's "Before the first release".
+#
+#   Node suites   `npm test` on Node 20, 22 and 24.
+#   Bun           the suites again on JavaScriptCore: the stored math hash must
+#                 come out the same bits on a second JavaScript engine, or the
+#                 determinism promise is only V8's.
+#   types         the declarations against the docs' examples.
+#
+# No install step: there are no dependencies, so nothing to cache or audit.
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Bun is fetched for this step alone; the package still depends on nothing.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: |
+          for t in math ids store ringing voices decode gain clicks limiter errors docs platform determinism; do bun ./test/$t.test.js; done
+
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # TypeScript is fetched for this step alone; the package still depends on nothing.
+      - run: npm run test:types

@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Ringing spike: native nodes vs JS mixer</title>
+<style>body{font:14px/1.5 monospace;padding:16px}</style>
+<h3>Ringing spike: native Web Audio nodes vs the JS mixer (offline, 10 s of stereo at 48 kHz)</h3>
+<pre id="out">running...</pre>
+<script type="module">
+import { testSound, voiceSettings } from './kernel.js';
+
+const SR = 48000, SECONDS = 10, ROUNDS = 3;
+const data = testSound(SR);
+const out = document.getElementById('out');
+const log = s => { out.textContent += '\n' + s; };
+const median = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+
+// What a game does today with Web Audio: source -> lowpass -> gain -> pan, per voice.
+async function native(n) {
+  const ctx = new OfflineAudioContext(2, SR * SECONDS, SR);
+  const buf = ctx.createBuffer(1, data.length - 1, SR);
+  buf.copyToChannel(data.subarray(0, data.length - 1), 0);
+  for (let i = 0; i < n; i++) {
+    const o = voiceSettings(i);
+    const src = new AudioBufferSourceNode(ctx, { buffer: buf, loop: true, playbackRate: o.rate });
+    const lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: o.cutoff, Q: Math.SQRT1_2 });
+    const g = new GainNode(ctx, { gain: o.gain });
+    const p = new StereoPannerNode(ctx, { pan: o.pan });
+    src.connect(lp).connect(g).connect(p).connect(ctx.destination);
+    src.start(0, o.start / SR);
+  }
+  const t = performance.now();
+  await ctx.startRendering();
+  return performance.now() - t;
+}
+
+async function mixer(n) {
+  const ctx = new OfflineAudioContext(2, SR * SECONDS, SR);
+  await ctx.audioWorklet.addModule('worklet.js');
+  const voices = Array.from({ length: n }, (_, i) => ({ ...voiceSettings(i), sampleRate: SR }));
+  const node = new AudioWorkletNode(ctx, 'mixer', { outputChannelCount: [2], processorOptions: { data, voices } });
+  node.connect(ctx.destination);
+  const t = performance.now();
+  await ctx.startRendering();
+  return performance.now() - t;
+}
+
+const rows = [];
+for (const n of [25, 50, 100, 200, 400, 800]) {
+  await native(n); await mixer(n); // warm up both
+  const a = [], b = [];
+  for (let r = 0; r < ROUNDS; r++) { a.push(await native(n)); b.push(await mixer(n)); } // alternating
+  const na = median(a), mb = median(b);
+  rows.push({ n, native: na, js: mb });
+  log(`${String(n).padStart(4)} voices   native ${na.toFixed(0).padStart(6)} ms   JS mixer ${mb.toFixed(0).padStart(6)} ms   ${(na / mb).toFixed(2)}x   (${(SECONDS * 1000 / mb).toFixed(0)}x real time)`);
+}
+window.RESULT = rows;
+log('done');
+</script>
